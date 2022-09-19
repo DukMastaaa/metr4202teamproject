@@ -3,6 +3,7 @@
 
 # Always need this
 from cmath import sqrt
+from hashlib import sha3_224
 import rospy
 
 # Import message types
@@ -10,7 +11,7 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose
 import modern_robotics as mr
-from math import cos,sin
+from math import atan, atan2, cos,sin
 import numpy as np
  
 
@@ -25,18 +26,28 @@ def inverse_kinematics(pose: Pose) -> JointState:
     by = pose.position.y - L1 - L4*sin(290)
     bz = pose.position.z
 
+    theta_1 = atan(bz,bx)
     c3 = (bx^2 + by^2 - L2^2 - L3^2)
     s3 = sqrt(1-c3^2)
 
-    theta_3 = mr.
+    theta_3 = atan2(c3,s3)
+
+    s2 = (by*(L2 + L3*cos(theta_3))-L3*sin(theta_3)*bx)/(L2^2+L3^2 + 2*L2*L3*cos(theta_3))
+    c2 = (bx*(L2 + L3*cos(theta_3)) + L3*sin(theta_3)*by)/(L2^2+L3^2 + 2*L2*L3*cos(theta_3))
+
+    theta_2 = atan2(c2,s2)
+
+    theta_4 = 290 - theta_2 - theta_3
+
+    
 
     rospy.loginfo(f'Got desired pose\n[\n\tpos:\n{pose.position}\nrot:\n{pose.orientation}\n]')
-    pub.publish(dummy_joint_states())
+    pub.publish(desired_joint_states(theta_1,theta_2,theta_3,theta_4))
     
 
 
-# Funny code
-def dummy_joint_states() -> JointState:
+
+def desired_joint_states(theta_1,theta_2,theta_3,theta_4) -> JointState:
     # Create message of type JointState
     msg = JointState(
         # Set header with current time
@@ -46,10 +57,10 @@ def dummy_joint_states() -> JointState:
     )
     # Funny code
     msg.position = [
-        random.uniform(-1.5, 1.5),
-        random.uniform(-1.5, 1.5),
-        random.uniform(-1.5, 1.5),
-        random.uniform(-1.5, 1.5)
+        theta_1,
+        theta_2,
+        theta_3,
+        theta_4
     ]
     return msg
 
@@ -71,7 +82,7 @@ def main():
     )
 
     # Initialise node with any node name
-    rospy.init_node('metr4202_w7_prac')
+    rospy.init_node('Inverse Kinematics', anonymous = True)
 
     # You spin me right round baby, right round...
     # Just stops Python from exiting and executes callbacks
@@ -80,17 +91,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-Footer
-© 2022 GitHub, Inc.
-Footer navigation
-Terms
-Privacy
-Security
-Status
-Docs
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About
