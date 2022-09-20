@@ -1,0 +1,6 @@
+[submodule "src/dynamixel_interface"]
+	path = src/dynamixel_interface
+	url = https://github.com/UQ-METR4202/dynamixel_interface.git
+[submodule "src/metr4202_ximea_ros"]
+	path = src/metr4202_ximea_ros
+	url = https://github.com/UQ-METR4202/metr4202_ximea_ros.git
