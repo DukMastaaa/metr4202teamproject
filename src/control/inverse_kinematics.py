@@ -23,7 +23,9 @@ JOINT_MAPPING = {
 
 def solution_2r(L1, L2, px, py):
     c2 = (px**2 + py**2 - L1**2 - L2**2) / (2 * L1 * L2)
-    theta2 = atan2(+sqrt(1 - c2**2), c2)
+    if abs(c2) >= 1:
+        raise ValueError("c2 >= 1")
+    theta2 = atan2(-sqrt(1 - c2**2), c2)
     theta1 = atan2(py, px) - atan2(L2 * sin(theta2), L1 + L2 * cos(theta2))
     return theta1, theta2
 
@@ -50,24 +52,15 @@ def inverse_kinematics(pose: Pose) -> JointState:
     # phi = 0
     bz = pz + L4*sin(theta_e) - L1
 
-    print(f"({br}, {bz})")
-
-    # c_b = (br**2 + (bz-L1)**2 - L2**2 - L3**2) / (2 * L2 * L3)
-    c_b = (br**2 + bz**2 - L2**2 - L3**2) / (2 * L2 * L3)
-    if abs(c_b) >= 1:
-        raise ValueError("c_b >= 1")
-    print(c_b)
-    # we pick negative branch
-    theta_b = atan2(+sqrt(1 - c_b**2), c_b)
-    theta_a = atan2(bz, br) - atan2(L3 * sin(-theta_b), L2 + L3 * c_b)
-    print(f"b: {np.rad2deg(theta_b)}, a: {np.rad2deg(theta_a)}")
+    theta_a, theta_b = solution_2r(L2, L3, br, bz)
+    print(theta_a, theta_b)
 
     # theta_1 = np.deg2rad(90) - phi
     theta_1 = phi
     # convert from lecture formulas to our actual theta_2, theta_3
     theta_2 = np.deg2rad(90) - theta_a
     # theta_2 = -theta_2
-    theta_3 = theta_b
+    theta_3 = -theta_b
 
     theta_4 = theta_e - theta_2 - theta_3 + np.deg2rad(90)
 
