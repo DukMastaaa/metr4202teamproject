@@ -4,3 +4,6 @@
 [submodule "src/metr4202_ximea_ros"]
 	path = src/metr4202_ximea_ros
 	url = https://github.com/UQ-METR4202/metr4202_ximea_ros.git
+[submodule "src/dynamixel_slider"]
+	path = src/dynamixel_slider
+	url = https://github.com/UQ-METR4202/dynamixel_slider.git
