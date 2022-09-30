@@ -7,8 +7,8 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose
 
-from math import atan, atan2, cos, sin, sqrt, pi
 import numpy as np
+from numpy import atan2, cos, sin, sqrt, pi
 
 import constants
 
@@ -68,7 +68,6 @@ class InverseKinematics:
         theta_2 = np.deg2rad(90) - theta_a
         theta_3 = -theta_b
         theta_4 = theta_e - theta_2 - theta_3 + np.deg2rad(90)
-
         return theta_1, theta_2, theta_3, theta_4
 
     @staticmethod
