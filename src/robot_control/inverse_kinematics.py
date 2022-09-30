@@ -27,7 +27,7 @@ class InverseKinematics:
         self.sub = rospy.Subscriber(
             self.NODE_NAME_TO_SUBSCRIBE,
             Pose,
-            self.inverse_kinematics
+            self.callback
         )
     
     @staticmethod
