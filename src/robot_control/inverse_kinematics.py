@@ -75,7 +75,7 @@ class InverseKinematics:
         """
         Returns the angles (angle_1, angle_2, angle_3, angle_4)
         which are meant for the actual Dynamixels with IDs 1, 2, 3, 4.
-        This is necessary as the way we assembeled the motors isn't
+        This is necessary as the way we assembled the motors isn't
         consistent with the definitions of theta for IK.
         """
         # compensate for motor orientation
