@@ -1,0 +1,4 @@
+<launch>
+    <include file="$(find dynamixel_interface)/launch/dynamixel_interface_controller.xml"/>
+    <node pkg="robot_control" name="inverse_kinematics" type="inverse_kinematics.py" output="screen"/>
+</launch>

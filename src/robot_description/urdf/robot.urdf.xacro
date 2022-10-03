@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<!-- Robot -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ur5">
+  <!-- PROPERTIES -->
+  <xacro:property name="L1" value="0.053"/>
+  <xacro:property name="L2" value="0.12"/>
+  <xacro:property name="L3" value="0.095"/>
+  <xacro:property name="L4" value="0.113"/>
+  <xacro:property name="linkThickness" value="0.05"/>
+
+  <!-- JOINTS -->
+  <joint name="world_joint" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <joint name="joint_1" type="continuous">
+    <parent link="base_link"/>
+    <child link="link_1"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <joint name="joint_2" type="continuous">
+    <parent link="link_1"/>
+    <child link="link_2"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 ${L1}"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <joint name="joint_3" type="continuous">
+    <parent link="link_2"/>
+    <child link="link_3"/>
+    <origin rpy="0.0 0.0 0.0" xyz="${L2} 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <joint name="joint_4" type="continuous">
+    <parent link="link_3"/>
+    <child link="link_4"/>
+    <origin rpy="0.0 0.0 0.0" xyz="${L3} 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <joint name="joint_ee" type="continuous">
+    <parent link="link_4"/>
+    <child link="link_ee"/>
+    <origin rpy="0.0 0.0 0.0" xyz="${L4} 0.0 0.0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <!-- LINKS -->
+  <link name="world"/>
+  <link name="base_link"/>
+  <link name="link_1">
+    <visual>
+      <geometry>
+        <box size="${linkThickness} ${linkThickness} ${L1}"/>
+      </geometry>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 ${L1/2}"/>
+    </visual>
+  </link>
+  <link name="link_2">
+    <visual>
+      <geometry>
+        <box size="${L2} ${linkThickness} ${linkThickness}"/>
+      </geometry>
+      <origin rpy="0.0 0.0 0.0" xyz="${L2/2} 0.0 0.0"/>
+    </visual>
+  </link>
+  <link name="link_3">
+    <visual>
+      <geometry>
+        <box size="${L3} ${linkThickness} ${linkThickness}"/>
+      </geometry>
+      <origin rpy="0.0 0.0 0.0" xyz="${L3/2} 0.0 0.0"/>
+    </visual>
+  </link>
+  <link name="link_4">
+    <visual>
+      <geometry>
+        <box size="${L4} ${linkThickness} ${linkThickness}"/>
+      </geometry>
+      <origin rpy="0.0 0.0 0.0" xyz="${L4/2} 0.0 0.0"/>
+    </visual>
+  </link>
+  <link name="link_ee"/> 
+
+</robot>
