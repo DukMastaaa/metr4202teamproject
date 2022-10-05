@@ -8,7 +8,8 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose
 
 import numpy as np
-from numpy import atan2, cos, sin, sqrt, pi
+from numpy import cos, sin, sqrt, pi
+from numpy import arctan2 as atan2
 
 import constants
 
@@ -29,6 +30,24 @@ class InverseKinematics:
             Pose,
             self.callback
         )
+    
+    @staticmethod
+    def pose_will_collide(pose: Pose, theta_1, theta_2, theta_3, theta_4) -> bool:
+        """
+        Returns whether the given desired pose will lead to a collision,
+        either with the environment or with the robot itself.
+        """
+        x, y, z = pose.position.x, pose.position.y, pose.position.z
+        # ground
+        if z < constants.HEIGHT_ABOVE_GROUND:
+            return True
+        # wall
+        if x < constants.WALL_X_LIMIT:
+            return True
+        # self-collision
+        # from the hint given in the milestone, we can implement soft joint limits
+        # ...seems unreliable, will think about it
+        return False
     
     @staticmethod
     def solution_2r(L1, L2, px, py) -> Tuple[float, float]:
@@ -79,7 +98,8 @@ class InverseKinematics:
         consistent with the definitions of theta for IK.
         """
         # compensate for motor orientation
-        theta_2 = np.deg2rad(90) - theta_2
+        # theta_2 = np.deg2rad(90) - theta_2
+        theta_2 = -theta_2
         theta_3 = -theta_3
         # compensate for different motor IDs
         # angle_i is the angle that the motor with ID i should recieve
@@ -104,6 +124,9 @@ class InverseKinematics:
         angle_1, angle_2, angle_3, angle_4 = self.compensated_angles(
             theta_1, theta_2, theta_3, theta_4
         )
+
+        if self.pose_will_collide(pose, theta_1, theta_2, theta_3, theta_4):
+            raise ValueError("collision")
         
         msg = JointState(
             # Set header with current time

@@ -16,3 +16,8 @@ roslaunch project example.launch
 ```
 but this will change as we progress into the project.
 
+## Cloning
+This project uses git submodules for dependency management.
+Clone this repository with `git clone --recurse-submodules https://github.com/DukMastaaa/metr4202teamproject.git`.
+
+The `serials` variable in `metr4202_ximea_ros/ximea_ros/src/ximea_demo.cpp` needs to be updated with our camera's serial number before building.
