@@ -10,7 +10,7 @@ import numpy as np
 
 # transformation matrix from the base frame to the camera frame
 T_bc = np.array([
-    [0, 1, 0, 0.16],
+    [0, 1, 0, 0.20],
     [1, 0, 0, 0],
     [0, 0, -1, 0.445],
     [0,0,0,1]]
