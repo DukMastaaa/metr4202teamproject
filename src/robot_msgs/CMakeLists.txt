@@ -52,6 +52,10 @@ add_message_files(
   FILES
   LuggageTransform.msg
   LuggageTransformArray.msg
+  LuggageColor.msg
+  LuggageColorArray.msg
+  ColorWithID.msg
+  ColorWithIDArray.msg
 )
 
 ## Generate services in the 'srv' folder

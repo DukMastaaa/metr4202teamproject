@@ -1,0 +1,2 @@
+int32 fiducial_id
+int8 color_code

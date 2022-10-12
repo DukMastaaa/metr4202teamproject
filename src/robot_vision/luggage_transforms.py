@@ -1,11 +1,10 @@
 #!/usr/bin/python3
 import rospy
-from std_msgs.msg import Header, ColorRGBA
-from geometry_msgs.msg import Pose, Point, Transform
-from fiducial_msgs.msg import FiducialTransformArray
+from std_msgs.msg import Header
+from geometry_msgs.msg import Transform
+from fiducial_msgs.msg import FiducialTransformArray, FiducialArray
 from robot_msgs.msg import LuggageTransformArray, LuggageTransform
 
-import tf2_ros
 from tf_conversions import transformations
 import modern_robotics as mr
 import numpy as np
@@ -34,45 +33,42 @@ def SE3_to_transform(T: np.array) -> Transform:
 
 
 class RobotVision:
-    NODE_NAME_TO_PUBLISH = "luggage_info"
+    NODE_NAME_TO_PUBLISH = "luggage_transforms"
     NODE_NAME_TO_SUBSCRIBE = "fiducial_transforms"
 
     def __init__(self):
-        self.pub = rospy.Publisher(
+        self.luggage_info_pub = rospy.Publisher(
             self.NODE_NAME_TO_PUBLISH,
             LuggageTransformArray,
             queue_size = 10
         )
-        self.sub = rospy.Subscriber(
-            self.NODE_NAME_TO_SUBSCRIBE,
+        self.transform_sub = rospy.Subscriber(
+            self.NLODE_NAME_TO_SUBSCRIBE,
             FiducialTransformArray,
             self.callback
         )
 
     def callback(self, fid_tf_array: FiducialTransformArray) -> None:
-        luggage_tf_array = []
+        self.luggage_tf_array = []
         for fid_tf in fid_tf_array.transforms:
             tf_ct = fid_tf.transform
             T_ct = transform_to_SE3(tf_ct)
             T_bt = T_bc @ T_ct
             tf_bt = SE3_to_transform(T_bt)
-            
-            color = ColorRGBA(r=255, g=0, b=0, a=255)
-            
+
             luggage = LuggageTransform(
                 id=fid_tf.id,
-                transform=tf_bt,
-                color=color
+                transform=tf_bt
             )
-            luggage_tf_array.append(luggage)
+            self.luggage_tf_array.append(luggage)
             
         header = Header()
         header.stamp = rospy.time.now()
         msg = LuggageTransformArray(
             header=header,
-            transforms=luggage_tf_array
+            transforms=self.luggage_tf_array
         )
-        self.pub.publish(msg)
+        self.luggage_info_pub.publish(msg)
 
 def main():
     rospy.init_node("tag_detection", anonymous = True)
