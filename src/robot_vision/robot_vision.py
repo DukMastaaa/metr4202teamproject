@@ -1,10 +1,12 @@
 #!/usr/bin/python3
 import rospy
-from geometry_msgs.msg import Pose,Point
+from std_msgs.msg import Header, ColorRGBA
+from geometry_msgs.msg import Pose, Point, Transform
 from fiducial_msgs.msg import FiducialTransformArray
+from robot_msgs.msg import LuggageTransformArray, LuggageTransform
 
 import tf2_ros
-from tf_conversions import transformations as tfct
+from tf_conversions import transformations
 import modern_robotics as mr
 import numpy as np
 
@@ -16,14 +18,29 @@ T_bc = np.array([
     [0,0,0,1]]
 )
 
+def transform_to_SE3(transform: Transform) -> np.array:
+    # from week 5 prac
+    t = transform.translation
+    q = transform.rotation
+    p = np.array([t.x, t.y, t.z])
+    R = transformations.quaternion_matrix(np.array([q.x, q.y, q.z, q.w]))[:3, :3]
+    T = mr.RpToTrans(R, p)
+    return T
+
+def SE3_to_transform(T: np.array) -> Transform:
+    R, p = mr.TransToRp(T)
+    q = transformations.quaternion_from_matrix(R)
+    return Transform(translation=p, rotation=q)
+
+
 class RobotVision:
-    NODE_NAME_TO_PUBLISH = "desired_pose"
+    NODE_NAME_TO_PUBLISH = "luggage_info"
     NODE_NAME_TO_SUBSCRIBE = "fiducial_transforms"
 
     def __init__(self):
         self.pub = rospy.Publisher(
             self.NODE_NAME_TO_PUBLISH,
-            Pose,
+            LuggageTransformArray,
             queue_size = 10
         )
         self.sub = rospy.Subscriber(
@@ -32,29 +49,30 @@ class RobotVision:
             self.callback
         )
 
-
-    def callback(self, fiducialtransform: FiducialTransformArray) -> None:
-        fidtransform = fiducialtransform.transforms
-        if len(fidtransform) >= 1:
-            t_form = fidtransform[0].transform
-            t_ct = t_form.translation
-            q_ct = t_form.rotation
-
-            # from week 5 prac
-            p_ct = np.array([t_ct.x, t_ct.y, t_ct.z])
-            R_ct = tfct.quaternion_matrix(np.array([q_ct.x, q_ct.y, q_ct.z, q_ct.w]))[:3, :3]
-            T_ct = mr.RpToTrans(R_ct, p_ct)
-
+    def callback(self, fid_tf_array: FiducialTransformArray) -> None:
+        luggage_tf_array = []
+        for fid_tf in fid_tf_array.transforms:
+            tf_ct = fid_tf.transform
+            T_ct = transform_to_SE3(tf_ct)
             T_bt = T_bc @ T_ct
-
-            R_bt, p_bt = mr.TransToRp(T_bt)
-            #q_bt = tfct.quaternion_from_matrix(R_bt)
-
-            msg = Pose(
-                position = Point(p_bt[0], p_bt[1], p_bt[2])
+            tf_bt = SE3_to_transform(T_bt)
+            
+            color = ColorRGBA(r=255, g=0, b=0, a=255)
+            
+            luggage = LuggageTransform(
+                id=fid_tf.id,
+                transform=tf_bt,
+                color=color
             )
-
-            self.pub.publish(msg)
+            luggage_tf_array.append(luggage)
+            
+        header = Header()
+        header.stamp = rospy.time.now()
+        msg = LuggageTransformArray(
+            header=header,
+            transforms=luggage_tf_array
+        )
+        self.pub.publish(msg)
 
 def main():
     rospy.init_node("tag_detection", anonymous = True)
