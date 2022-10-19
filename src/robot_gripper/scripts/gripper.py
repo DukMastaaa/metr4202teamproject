@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-from matplotlib.pyplot import close
 import rospy
 import pigpio
 from std_msgs.msg import Bool, Int8

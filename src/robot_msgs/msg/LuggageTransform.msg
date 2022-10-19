@@ -1,2 +1,2 @@
 int32 fiducial_id
-geometry_msgs/Transform transform
+geometry_msgs/Pose transform

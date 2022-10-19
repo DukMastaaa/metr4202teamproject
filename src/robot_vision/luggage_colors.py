@@ -24,7 +24,7 @@ class TagColour:
         )
         self.color_pub = rospy.Publisher(
             "test_color",
-            ColorWithID,
+            ColorWithIDArray,
             queue_size = 10
         )
 
@@ -72,3 +72,9 @@ class TagColour:
         self.color_pub.publish(msg)
         self.image_locked = False
         
+if __name__ == "__main__":
+    rospy.init_node("luggage_colors", anonymous = True)
+
+    td = TagColour()
+
+    rospy.spin()

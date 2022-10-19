@@ -125,8 +125,8 @@ class InverseKinematics:
             theta_1, theta_2, theta_3, theta_4
         )
 
-        if self.pose_will_collide(pose, theta_1, theta_2, theta_3, theta_4):
-            raise ValueError("collision")
+        # if self.pose_will_collide(pose, theta_1, theta_2, theta_3, theta_4):
+        #     raise ValueError("collision")
         
         msg = JointState(
             # Set header with current time
