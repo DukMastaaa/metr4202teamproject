@@ -17,16 +17,19 @@ class Master:
     Level 3b - multiple blocks, rotating conveyor, pickup whilst in motion
     """
     def __init__(self):
-        self.pose_pub = rospy.Publisher(
+        self.sequence_pub = rospy.Publisher(
             # Publish to Planner Node?
         )
         
         self._level = 0
     
     def sequence_1_2_3a(self):
-      # States 1 - 5, Repeat
+      sequence = [1, 2, 3, 4, 5]
+      self.sequence_pub.publish(sequence)
       
     def sequence_3b(self):
+      sequence = []
+      self.sequence_pub.publish(sequence)
       
     def main_loop(self):
       level_input = input("Please select a level:\n")
