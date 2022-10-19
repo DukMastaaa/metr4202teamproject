@@ -72,6 +72,12 @@ class Planner:
             Pose,
             queue_size = 10
         )
+
+        self.gripper_pub = rospy.Publisher(
+            "desired_gripper_pos",
+            Bool,
+            queue_size = 10
+        )
         self._stage = 0
     
     def transform_callback(self, luggage_tf_array: LuggageTransformArray):
@@ -103,7 +109,8 @@ class Planner:
         rospy.loginfo("Waiting for conveyor to stop...")
 
         # Detect Conveyor Movement - Wait For Stationary
-        self.wait_conveyor()
+        while all(lug.get_velocity() >= 1 for lug in self.luggage_dict.values()):
+            pass
 
         # Move To State 3
         self._stage = 3
@@ -111,32 +118,40 @@ class Planner:
     def state_3(self):
         rospy.loginfo("Detecting luggage position and colours...")
 
-        # Detect Luggage + Colours, Determine Closest Block
+        #We set a wild initial minimum distance
+        
+        #Iterate through each luggage
+        min_id , mind_dist = 1000
+        for id, lug in self.luggage_dict.items():
+            point = lug.transform.translation
+            dist = np.linalg.norm(point)
+            if dist < min_dist:
+                #Set a new minimum distance to beat!
+                min_dist = dist
+                #Save the id
+                min_id = id
+                #Set the transform that we wish to publish to desired_pose
+                transform_goto = lug.transform
+                lug_colour = lug.color
 
-        # Move To State 4
+        #Pops the Transform associated with the id of the closest block (i.e the one about to be picked up)
+        del self.luggage_dict[min_id]
+
+        #Create message and publish to desired pose
+        msg = Pose(
+            Transform = transform_goto
+        )
+
+        self.pose_pub.publish(msg)
 
         self._stage = 4
 
+
+
     def state_4(self):
-        rospy.loginfo("Moving arm to target luggage...")
-
-        # Set Luggage Position Pose + Publish To IK
-        x = 0
-        y = 0
-        z = 0
-
-        msg = Pose(
-                position = Point(x, y, z)
-            )
-        self.pose_pub.publish(msg)
-
-        rospy.loginfo("Grabbing Luggage...")
-
-        # Move To State 5
-        self._state = 5
-        
-    def state_5(self):
         rospy.loginfo("Moving to drop-off zone...")
+        #We must pick up the block: 
+        self.gripper_pub.publish(1)
 
         # Set Drop-Off Zone Pose + Publish To IK
         dropoff_zone = None
