@@ -17,8 +17,9 @@ class Luggage:
         self.color = color
         # saves the time when self.transform was last updated
         self.tf_update_time = None
+        self.tf_prev_update_time = None
     
-    def update_transform(self, new_transform: Transform) -> None:
+    def update_transform(self, new_transform: Transform, time: rospy.Time) -> None:
         if self.transform is None:
             # initialise to the given transform
             self.prev_transform = new_transform
@@ -26,20 +27,31 @@ class Luggage:
             # shift over
             self.prev_transform = self.transform
         self.transform = new_transform
+        # update times
+        self.tf_prev_update_time = self.tf_update_time
+        self.tf_update_time = time
     
     def update_color(self, new_color: int) -> None:
         if self.color is None:
             self.color = new_color
         else:
             # log a warning and don't change the colour
-            rospy.loginfo(f"color change attempt from {self.color} to {new_color}")
+            rospy.logwarn(f"color change attempt from {self.color} to {new_color}")
 
     def get_velocity(self) -> Optional[float]:
         # calculates velocity based on transform and prev_transform
         if self.transform is None:
             return None
-        
-        pass
+        delta_position = self.transform.translation - self.prev_transform.translation
+        delta_time = (self.tf_update_time - self.tf_prev_update_time).to_sec()
+        return np.linalg.norm(delta_position) / delta_time
+
+def transform_to_pose(transform: Transform) -> Pose:
+    translation = transform.translation
+    return Pose(
+        position=Point(translation.x, translation.y, translation.z),
+        orientation=transform.rotation
+    )
 
 class Planner:
     """
@@ -73,6 +85,10 @@ class Planner:
             queue_size = 10
         )
 
+        # stores the color of the luggage that is currently being picked up.
+        # this should be set to None if we aren't picking up a block.
+        self.current_color = None
+
         self.gripper_pub = rospy.Publisher(
             "desired_gripper_pos",
             Bool,
@@ -81,28 +97,24 @@ class Planner:
         self._stage = 0
     
     def transform_callback(self, luggage_tf_array: LuggageTransformArray):
+        time = luggage_tf_array.header.stamp
         for luggage_tf in luggage_tf_array.transforms:
             id = luggage_tf.fiducial_id
-            self.luggage_dict[id].update_transform(luggage_tf.transform)
+            self.luggage_dict[id].update_transform(luggage_tf.transform, time)
     
     def color_callback(self, luggage_color_array: LuggageColorArray):
         for luggage_color in luggage_color_array:
             id = luggage_color.fiducial_id
             self.luggage_dict[id].update_color(luggage_color.color_code)
 
-    def wait_conveyor(self):
-        return True
-
     def state_1(self):
         rospy.loginfo("Moving to home configuration...")
         
-        # Set Home Configuration Pose + Publish To IK
         msg = Pose(
                 position = Point(0, 0, constants.L1 + constants.L2 + constants.L3 + constants.L4)
             )
         self.pose_pub.publish(msg)
 
-        # Move To State 2
         self._state = 2
 
     def state_2(self):
@@ -112,18 +124,20 @@ class Planner:
         while all(lug.get_velocity() >= 1 for lug in self.luggage_dict.values()):
             pass
 
-        # Move To State 3
         self._stage = 3
 
     def state_3(self):
-        rospy.loginfo("Detecting luggage position and colours...")
+        rospy.loginfo("Calculating closest luggage...")
 
         #We set a wild initial minimum distance
+        min_id = None
+        min_dist = float('inf')
+        transform_goto = None
         
         #Iterate through each luggage
-        min_id , mind_dist = 1000
         for id, lug in self.luggage_dict.items():
             point = lug.transform.translation
+            # distance to base origin
             dist = np.linalg.norm(point)
             if dist < min_dist:
                 #Set a new minimum distance to beat!
@@ -132,21 +146,19 @@ class Planner:
                 min_id = id
                 #Set the transform that we wish to publish to desired_pose
                 transform_goto = lug.transform
-                lug_colour = lug.color
+                self.current_color = lug.color
+
+        rospy.loginfo(f"Closest luggage id={id}.")
+        rospy.loginfo("Moving to luggage:")
 
         #Pops the Transform associated with the id of the closest block (i.e the one about to be picked up)
         del self.luggage_dict[min_id]
 
         #Create message and publish to desired pose
-        msg = Pose(
-            Transform = transform_goto
-        )
-
+        msg = transform_to_pose(transform_goto)
         self.pose_pub.publish(msg)
 
         self._stage = 4
-
-
 
     def state_4(self):
         rospy.loginfo("Moving to drop-off zone...")
