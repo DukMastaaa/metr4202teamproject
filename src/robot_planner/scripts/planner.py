@@ -1,30 +1,44 @@
 import rospy
-from geometry_msgs.msg import Pose,Point
+from geometry_msgs.msg import Pose, Transform, Point
 from robot_msgs.msg import LuggageTransformArray, LuggageTransform, LuggageColorArray, LuggageColor
 
 import modern_robotics as mr
 import numpy as np
 
+from typing import Optional
+from collections import defaultdict
+
 import constants
 
 class Luggage:
-    def __init__(self, transform, color):
+    def __init__(self, transform: Optional[Transform], color: Optional[int]):
         self.transform = transform
+        self.prev_transform = transform
         self.color = color
-
-        self.prev_transform = np.eye(4)  # uhh
+        # saves the time when self.transform was last updated
+        self.tf_update_time = None
     
-    def update_transform(self, new_transform):
-        self.prev_transform = self.transform
+    def update_transform(self, new_transform: Transform) -> None:
+        if self.transform is None:
+            # initialise to the given transform
+            self.prev_transform = new_transform
+        else:
+            # shift over
+            self.prev_transform = self.transform
         self.transform = new_transform
     
-    def update_color(self, new_color):
-        # hmmmmm
-        print("why is the colour changing...??????")
-        self.color = new_color
+    def update_color(self, new_color: int) -> None:
+        if self.color is None:
+            self.color = new_color
+        else:
+            # log a warning and don't change the colour
+            rospy.loginfo(f"color change attempt from {self.color} to {new_color}")
 
-    def get_velocity(self):
+    def get_velocity(self) -> Optional[float]:
         # calculates velocity based on transform and prev_transform
+        if self.transform is None:
+            return None
+        
         pass
 
 class Planner:
@@ -38,16 +52,9 @@ class Planner:
     State 5: Move Arm To Target Drop-Off Zone. Return To State 1
     """
 
-
     def __init__(self):
         # lookup id -> Luggage
-        self.luggage_dict = {}
-
-        while all(lug.get_velocity() >= 1 for lug in self.luggage_dict.values()):
-            pass
-
-        lug = Luggage(np.eye(4), 2)
-        lug.get_velocity()
+        self.luggage_dict = defaultdict(lambda: Luggage(None, None))
 
         self.transform_sub = rospy.Subscriber(
             "luggage_transforms",
@@ -70,9 +77,12 @@ class Planner:
     def transform_callback(self, luggage_tf_array: LuggageTransformArray):
         for luggage_tf in luggage_tf_array.transforms:
             id = luggage_tf.fiducial_id
-
-
-
+            self.luggage_dict[id].update_transform(luggage_tf.transform)
+    
+    def color_callback(self, luggage_color_array: LuggageColorArray):
+        for luggage_color in luggage_color_array:
+            id = luggage_color.fiducial_id
+            self.luggage_dict[id].update_color(luggage_color.color_code)
 
     def wait_conveyor(self):
         return True
