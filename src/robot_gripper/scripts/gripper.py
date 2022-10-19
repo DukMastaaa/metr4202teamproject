@@ -1,7 +1,8 @@
 #!/usr/bin/python3
+from matplotlib.pyplot import close
 import rospy
 import pigpio
-from std_msgs.msg import Bool, Float32
+from std_msgs.msg import Bool, Int8
 
 
 class RobotGripper():
@@ -20,17 +21,18 @@ class RobotGripper():
             Bool,
             self.callback
         )
-        
+
+        self.rpi = pigpio.pi()
+        self.rpi.set_mode(18, pigpio.OUTPUT)
 
     def callback(self, close: Bool):
-        rpi = pigpio.pi()
-        rpi.set_mode(18, pigpio.OUTPUT)
-
-        if close: 
-            rpi.set_servo_pulsewidth(18,1500)
+        if close.data: 
+            self.rpi.set_servo_pulsewidth(18,1500)
+            print('should be closed')
         
-        else: 
-            rpi.set_servo_pulsewidth(18,2000)
+        else:
+            self.rpi.set_servo_pulsewidth(18,2000)
+            print('should be open')
 
         self.pub.publish(close)
 
