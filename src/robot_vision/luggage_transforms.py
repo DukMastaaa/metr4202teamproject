@@ -21,7 +21,7 @@ def transform_to_SE3(transform: Transform) -> np.array:
     # from week 5 prac
     t = transform.translation
     q = transform.rotation
-    p = np.array([t.x, t.y, t.z])
+    p = np.array([t.x+0.0017, t.y+0.0017, t.z])
     R = transformations.quaternion_matrix(np.array([q.x, q.y, q.z, q.w]))[:3, :3]
     T = mr.RpToTrans(R, p)
     return T
