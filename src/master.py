@@ -19,11 +19,19 @@ class Master:
     def __init__(self):
         self._level = 0
     
-    def level_sequencing(self):
+    def sequence_1_2_3a(self):
+      
+    def sequence_3b(self):
       
     def main_loop(self):
       level_input = input("Please select a level:\n")
-      self._level = int(level_input)
+      #self._level = int(level_input)
+      
+      levels1 = {'1', '2', '3a'}
+      if level_input in levels1:
+        sequence_1_2_3a()
+      else:
+        sequence_3b()
 
 def main():
     node = Master()
