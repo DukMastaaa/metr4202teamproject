@@ -38,12 +38,16 @@ class Planner:
     State 5: Move Arm To Target Drop-Off Zone. Return To State 1
     """
 
-    NODE_NAME_TO_PUBLISH = "desired_pose"
-    NODE_NAME_TO_SUBSCRIBE = "luggage_info"
 
     def __init__(self):
         # lookup id -> Luggage
-        self.luggages = {}
+        self.luggage_dict = {}
+
+        while all(lug.get_velocity() >= 1 for lug in self.luggage_dict.values()):
+            pass
+
+        lug = Luggage(np.eye(4), 2)
+        lug.get_velocity()
 
         self.transform_sub = rospy.Subscriber(
             "luggage_transforms",
@@ -56,19 +60,19 @@ class Planner:
             self.color_callback
         )
 
-
-
-        self.pub = rospy.Publisher(
-            self.NODE_NAME_TO_PUBLISH,
+        self.pose_pub = rospy.Publisher(
+            "desired_pose",
             Pose,
             queue_size = 10
         )
-        self.sub = rospy.Subscriber(
-            self.NODE_NAME_TO_SUBSCRIBE,
-            LuggageTransformArray
-            self.callback
-        )
         self._stage = 0
+    
+    def transform_callback(self, luggage_tf_array: LuggageTransformArray):
+        for luggage_tf in luggage_tf_array.transforms:
+            id = luggage_tf.fiducial_id
+
+
+
 
     def wait_conveyor(self):
         return True
@@ -80,7 +84,7 @@ class Planner:
         msg = Pose(
                 position = Point(0, 0, constants.L1 + constants.L2 + constants.L3 + constants.L4)
             )
-        self.pub.publish(msg)
+        self.pose_pub.publish(msg)
 
         # Move To State 2
         self._state = 2
@@ -100,8 +104,6 @@ class Planner:
         # Detect Luggage + Colours, Determine Closest Block
 
         # Move To State 4
-        
-        
 
         self._stage = 4
 
@@ -116,7 +118,7 @@ class Planner:
         msg = Pose(
                 position = Point(x, y, z)
             )
-        self.pub.publish(msg)
+        self.pose_pub.publish(msg)
 
         rospy.loginfo("Grabbing Luggage...")
 
@@ -141,7 +143,7 @@ class Planner:
         msg = Pose(
                 position = Point(x, y, z)
             )
-        self.pub.publish(msg)
+        self.pose_pub.publish(msg)
 
         rospy.loginfo("Releasing Luggage...")
 
