@@ -16,3 +16,7 @@ class Master:
     Level 3a - multiple blocks, stationary conveyor
     Level 3b - multiple blocks, rotating conveyor, pickup whilst in motion
     """
+    def __init__(self):
+        self._level = 0
+    
+    def level_sequencing(self):
