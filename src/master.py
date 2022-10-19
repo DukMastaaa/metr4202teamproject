@@ -28,10 +28,13 @@ class Master:
       #self._level = int(level_input)
       
       levels1 = {'1', '2', '3a'}
+      levels2 = {'3b'}
       if level_input in levels1:
         sequence_1_2_3a()
-      else:
+      elif level_input in levels2:
         sequence_3b()
+      else:
+        rospy.logfatal("Level Does Not Exist")
 
 def main():
     node = Master()
