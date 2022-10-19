@@ -20,3 +20,18 @@ class Master:
         self._level = 0
     
     def level_sequencing(self):
+      
+    def main_loop(self):
+      level_input = input("Please select a level:\n")
+      self._level = int(level_input)
+
+def main():
+    node = Master()
+    node.main_loop()
+    rospy.spin()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
