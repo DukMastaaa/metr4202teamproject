@@ -1,11 +1,31 @@
 import rospy
 from geometry_msgs.msg import Pose,Point
-from robot_msgs.msg import LuggageTransformArray, LuggageTransform
+from robot_msgs.msg import LuggageTransformArray, LuggageTransform, LuggageColorArray, LuggageColor
 
 import modern_robotics as mr
 import numpy as np
 
 import constants
+
+class Luggage:
+    def __init__(self, transform, color):
+        self.transform = transform
+        self.color = color
+
+        self.prev_transform = np.eye(4)  # uhh
+    
+    def update_transform(self, new_transform):
+        self.prev_transform = self.transform
+        self.transform = new_transform
+    
+    def update_color(self, new_color):
+        # hmmmmm
+        print("why is the colour changing...??????")
+        self.color = new_color
+
+    def get_velocity(self):
+        # calculates velocity based on transform and prev_transform
+        pass
 
 class Planner:
     """
@@ -22,6 +42,22 @@ class Planner:
     NODE_NAME_TO_SUBSCRIBE = "luggage_info"
 
     def __init__(self):
+        # lookup id -> Luggage
+        self.luggages = {}
+
+        self.transform_sub = rospy.Subscriber(
+            "luggage_transforms",
+            LuggageTransformArray,
+            self.transform_callback
+        )
+        self.color_sub = rospy.Subscriber(
+            "luggage_colors",
+            LuggageColorArray,
+            self.color_callback
+        )
+
+
+
         self.pub = rospy.Publisher(
             self.NODE_NAME_TO_PUBLISH,
             Pose,
