@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+import copy
 import rospy
 from geometry_msgs.msg import Pose, Transform, Point, Vector3, Quaternion
 from std_msgs.msg import Bool,Header
@@ -17,6 +18,10 @@ L1 = 0.053
 L2 = 0.117
 L3 = 0.095
 L4 = 0.113
+
+SHOW_TO_CAMERA_SE3 = mr.RpToTrans(
+    np.eye(3), [15/100, 0, 22/100]
+)
 
 DROPOFF_1 = mr.RpToTrans(
     np.eye(3), [-0.05, -0.15, 0.03]
@@ -242,6 +247,9 @@ class Planner:
             # release locks
             self.reconcile()
             
+            rospy.loginfo("zz")
+            rospy.sleep(0.5)
+            
         print("detected!")
         self.state_num = 3
 
@@ -282,12 +290,19 @@ class Planner:
         rospy.loginfo("Opening gripper...")
         self.gripper_pub.publish(False)
 
-        rospy.loginfo("Moving to luggage...")
+        rospy.loginfo("Moving to above luggage...")
 
         # Pops the Transform associated with the id of the closest block (i.e the one about to be picked up)
         del self.luggage_dict[min_id]
 
-        # Create message and publish to desired pose
+        above_pose = copy.deepcopy(min_pose)
+        above_pose.position.z += 0.05
+        self.pose_pub.publish(above_pose)
+
+        rospy.loginfo("Waiting for joints to reach position...")
+        rospy.sleep(3)
+        
+        rospy.loginfo("Moving down to luggage...")
         self.pose_pub.publish(min_pose)
 
         rospy.loginfo("Waiting for joints to reach position...")
@@ -299,11 +314,30 @@ class Planner:
         self.state_num = 4
 
     def state_4(self):
-        rospy.loginfo("Moving to drop-off zone...")
+        rospy.loginfo("Moving to show block to camera:")
+        show_to_camera_pose = transform_to_pose(SE3_to_transform(SHOW_TO_CAMERA_SE3))
+        self.pose_pub.publish(show_to_camera_pose)
+
+        rospy.loginfo("Waiting for joints to reach position...")
+        rospy.sleep(3)
+        
+        self.state_num = 5
+    
+    def state_5(self):
+        rospy.loginfo("Moving to above drop-off zone...")
 
         # the proper code should involve self.current_color
         # to decide what dropoff zone to use
         dropoff_pose = transform_to_pose(SE3_to_transform(DROPOFF_1))
+        above_dropoff_pose = copy.deepcopy(dropoff_pose)
+        above_dropoff_pose.position.z += 0.1
+
+        self.pose_pub.publish(above_dropoff_pose)
+
+        rospy.loginfo("Waiting for joints to reach position...")
+        rospy.sleep(3)
+        
+        rospy.loginfo("Moving to drop-off zone...")
         self.pose_pub.publish(dropoff_pose)
 
         rospy.loginfo("Waiting for joints to reach position...")
@@ -313,7 +347,7 @@ class Planner:
         self.gripper_pub.publish(True)
         
         self.id_blacklist.remove(self.current_id)
-
+       
         self.state_num = 2
 
     def main_loop(self):
@@ -323,6 +357,7 @@ class Planner:
             2: self.state_2,
             3: self.state_3,
             4: self.state_4,
+            5: self.state_5,
         }
 
         while not rospy.is_shutdown():
