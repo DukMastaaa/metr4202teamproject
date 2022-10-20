@@ -13,15 +13,18 @@ import numpy as np
 T_bc = np.array([
     [0, 1, 0, 0.178],
     [1, 0, 0, 0],
-    [0, 0, -1, 0.475-0.034-0.03],
+    [0, 0, -1, 0.475-0.034-0.07],
     [0,0,0,1]]
 )
+
+# TAG_LENGTH = 2.9/100
+TAG_LENGTH = 0
 
 def transform_to_SE3(transform: Transform) -> np.array:
     # from week 5 prac
     t = transform.translation
     q = transform.rotation
-    p = np.array([t.x+0.0017, t.y+0.0017, t.z])
+    p = np.array([t.x+TAG_LENGTH/2, t.y+TAG_LENGTH/2, t.z])
     R = transformations.quaternion_matrix(np.array([q.x, q.y, q.z, q.w]))[:3, :3]
     T = mr.RpToTrans(R, p)
     return T
