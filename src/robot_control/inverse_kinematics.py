@@ -15,9 +15,19 @@ import constants
 
 from typing import Tuple
 
+Slist = np.array([
+    [0, 0, 1, 0, 0, 0],
+    [0, 1, 0, -constants.L1, 0, 0],
+    [0, 1, 0, -(constants.L1 + constants.L2), 0, 0],
+    [0, 1, 0, -(constants.L1 + constants.L2 + constants.L3), 0, 0]
+]).T
+M = mr.RpToTrans(np.eye(3), np.array([0, 0, constants.L1 + constants.L2 + constants.L3 + constants.L4]))
+
 class InverseKinematics:
     NODE_NAME_TO_PUBLISH = "desired_joint_states"
     NODE_NAME_TO_SUBSCRIBE = "desired_pose"
+    
+    USE_NUMERICAL = False
     
     def __init__(self):
         self.pub = rospy.Publisher(
@@ -30,6 +40,10 @@ class InverseKinematics:
             Pose,
             self.callback
         )
+        
+        # use previously calculated joint angles
+        # as initial guess for numerical IK
+        self.prev_joint_angles = np.zeros(4)
     
     @staticmethod
     def pose_will_collide(pose: Pose, theta_1, theta_2, theta_3, theta_4) -> bool:
@@ -89,6 +103,16 @@ class InverseKinematics:
         theta_4 = theta_e - theta_2 - theta_3 + np.deg2rad(90)
         return theta_1, theta_2, theta_3, theta_4
 
+    def numerical(self, px, py, pz):
+        eomg = float('inf')  # large tolerance so orientation doesn't matter
+        ev = 0.1
+        T = mr.RpToTrans(np.eye(3), [px, py, pz])
+        soln, success = mr.IKinSpace(Slist, M, T, self.prev_joint_angles, eomg, ev)
+        soln = (soln + np.pi) % (2 * np.pi) - np.pi
+        print(soln)
+        assert success
+        return soln
+
     @staticmethod
     def compensated_angles(theta_1, theta_2, theta_3, theta_4) -> Tuple[float, float, float, float]:
         """
@@ -115,11 +139,17 @@ class InverseKinematics:
         compensates for inconsistencies in motor assembly, and publishes
         to the next stage.
         """
-        theta_1, theta_2, theta_3, theta_4 = self.solution_4r(
-            constants.L1, constants.L2, constants.L3, constants.L4,
-            np.deg2rad(constants.THETA_E_DEG),
-            pose.position.x, pose.position.y, pose.position.z
-        )
+        if self.USE_NUMERICAL:
+            theta_1, theta_2, theta_3, theta_4 = self.numerical(
+                pose.position.x, pose.position.y, pose.position.z
+            )
+        else:
+            theta_e = np.deg2rad(45)
+            
+            theta_1, theta_2, theta_3, theta_4 = self.solution_4r(
+                constants.L1, constants.L2, constants.L3, constants.L4, theta_e,
+                pose.position.x, pose.position.y, pose.position.z
+            )
         
         angle_1, angle_2, angle_3, angle_4 = self.compensated_angles(
             theta_1, theta_2, theta_3, theta_4
