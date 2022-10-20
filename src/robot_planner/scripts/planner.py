@@ -77,11 +77,19 @@ class Luggage:
         # calculates velocity based on transform and prev_transform
         if self.transform is None or self.tf_prev_update_time is None:
             return float('inf')
+
         delta_position = \
             point_to_np(self.transform.position) - point_to_np(self.prev_transform.position)
-        delta_time = (self.tf_update_time - self.tf_prev_update_time).to_sec()
-        print(self.transform, self.prev_transform, self.tf_update_time, self.tf_prev_update_time)
-        return np.linalg.norm(delta_position) / delta_time
+        #delta_time = (self.tf_update_time - self.tf_prev_update_time).to_sec()
+        #print(self.transform, self.prev_transform, self.tf_update_time, self.tf_prev_update_time)
+        norm = np.linalg.norm(delta_position)
+        if norm == 0.0:
+            norm = 1
+        else:
+            pass
+
+        print(norm)
+        return norm
     
     def reconcile(self, other: "Luggage") -> None:
         if other.transform is not None:
@@ -214,15 +222,16 @@ class Planner:
     def state_2(self):
         rospy.loginfo("Waiting for conveyor to stop and for luggage to be present...")
 
-        VELOCITY_THRESHOLD = 0.05
+        VELOCITY_THRESHOLD = 0.001
 
         min = float('inf')
         while True:
             # acquire locks
             self.is_busy = True
             self.backup_is_busy = False
-
             # get minimum
+            print('You are in while loop')
+            rospy.sleep(0.5)
             if len(self.luggage_dict) > 0 and \
                 all(
                     lug.get_velocity() <= VELOCITY_THRESHOLD

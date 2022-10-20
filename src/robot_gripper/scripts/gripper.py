@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import rospy
 import pigpio
-from std_msgs.msg import Bool, Int8
+from std_msgs.msg import Bool
 
 
 class RobotGripper():
