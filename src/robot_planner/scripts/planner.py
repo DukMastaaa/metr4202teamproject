@@ -362,7 +362,7 @@ class Planner:
         rospy.sleep(3)
 
         rospy.loginfo("Opening gripper...")
-        self.gripper_pub.publish(True)
+        self.gripper_pub.publish(False)
         
         self.id_blacklist.remove(self.current_id)
        
