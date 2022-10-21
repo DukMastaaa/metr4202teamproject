@@ -18,6 +18,7 @@ L1 = 0.053
 L2 = 0.117
 L3 = 0.095
 L4 = 0.113
+HOME_POSE = mr.RpToTrans(np.eye(3),[0,0,L1+L2+L3+L4-.05])
 
 SHOW_TO_CAMERA_SE3 = mr.RpToTrans(
     np.eye(3), [15/100, 0, 22/100]
@@ -62,7 +63,7 @@ class Luggage:
     def update_transform(self, new_transform: Pose, time: rospy.Time) -> None:
         if self.transform is None:
             # initialise to the given transform
-            self.prev_transform = new_transform
+            self.prev_transform = None
         else:
             # shift over
             self.prev_transform = self.transform
@@ -85,26 +86,36 @@ class Luggage:
 
         delta_position = \
             point_to_np(self.transform.position) - point_to_np(self.prev_transform.position)
-        #delta_time = (self.tf_update_time - self.tf_prev_update_time).to_sec()
-        #print(self.transform, self.prev_transform, self.tf_update_time, self.tf_prev_update_time)
+        delta_time = (self.tf_update_time - self.tf_prev_update_time).to_sec()
+        # print(self.transform, self.prev_transform, self.tf_update_time, self.tf_prev_update_time)
         norm = np.linalg.norm(delta_position)
         if norm == 0.0:
             norm = 1
         else:
             pass
 
-        print(norm)
+        rospy.loginfo(f"vel={norm}")
         return norm
     
     def reconcile(self, other: "Luggage") -> None:
         if other.transform is not None:
-            self.transform = other.transform
+            if other.prev_transform is not None:
+                self.prev_transform = other.prev_transform
+                self.transform = other.transform
+                self.tf_prev_update_time = other.tf_prev_update_time
+            else:
+                # shift over
+                self.prev_transform = self.transform
+                self.transform = other.transform
+                self.tf_prev_update_time = self.tf_update_time
+
             self.tf_update_time = other.tf_update_time
-        if other.prev_transform is not None:
-            self.prev_transform = other.prev_transform
-            self.tf_prev_update_time = other.tf_update_time
         if self.color is None and other.color is not None:
             self.color = other.color
+
+    def __repr__(self):
+        return f"Luggage(tf={self.transform},\\prev_tf={self.prev_transform},\\" \
+               f"time={self.tf_update_time},\\prev_time={self.tf_prev_update_time})"
 
 class Planner:
     """
@@ -201,6 +212,7 @@ class Planner:
         self.is_busy = True
 
         for id, lug in self.backup_luggage_dict.items():
+            # rospy.loginfo(str(lug))
             if id in self.luggage_dict:
                 self.luggage_dict[id].reconcile(lug)
             else:
@@ -212,6 +224,15 @@ class Planner:
         self.backup_is_busy = False
 
     def state_1(self):
+        rospy.loginfo("Moving to intial configuration:")
+        show_to_camera_pose = transform_to_pose(SE3_to_transform(SHOW_TO_CAMERA_SE3))
+        self.pose_pub.publish(show_to_camera_pose)
+        rospy.sleep(2)
+
+        self.state_num = 2
+
+    def state_2(self):
+        #Moving to home_configuration
         rospy.loginfo("Moving to home configuration...")
         
         msg = JointState(
@@ -222,12 +243,9 @@ class Planner:
         self.joint_pub.publish(msg)
         rospy.sleep(2)
 
-        self.state_num = 2
-
-    def state_2(self):
         rospy.loginfo("Waiting for conveyor to stop and for luggage to be present...")
 
-        VELOCITY_THRESHOLD = 0.001
+        VELOCITY_THRESHOLD = 0.0008
 
         min = float('inf')
         while True:
@@ -235,22 +253,23 @@ class Planner:
             self.is_busy = True
             self.backup_is_busy = False
             # get minimum
-            print('You are in while loop')
-            rospy.sleep(0.5)
+            # print('.', end="")
+            # print('You are in while loop')
+            if self.transform_update:
+                # rospy.loginfo(str(list(self.luggage_dict.values())))
+                self.transform_update = False
+            # rospy.sleep(0.5)
             if len(self.luggage_dict) > 0 and \
-                all(
-                    lug.get_velocity() <= VELOCITY_THRESHOLD
-                    for lug in self.luggage_dict.values()
-                ):
+                    all(lug.get_velocity() <= VELOCITY_THRESHOLD
+                    for lug in self.luggage_dict.values()):
                 break
 
             # release locks
             self.reconcile()
             
-            rospy.loginfo("zz")
-            rospy.sleep(0.5)
+            # rospy.sleep(0.5)
             
-        print("detected!")
+        rospy.loginfo("detected!")
         self.state_num = 3
 
     def state_3(self):
@@ -325,7 +344,6 @@ class Planner:
     
     def state_5(self):
         rospy.loginfo("Moving to above drop-off zone...")
-
         # the proper code should involve self.current_color
         # to decide what dropoff zone to use
         dropoff_pose = transform_to_pose(SE3_to_transform(DROPOFF_1))
