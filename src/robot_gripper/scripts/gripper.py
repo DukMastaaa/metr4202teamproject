@@ -8,6 +8,9 @@ class RobotGripper():
     NODE_NAME_TO_SUBSCRIBE = "desired_gripper_pos"
     NODE_NAME_TO_PUBLISH = "gripper_pos"
     
+    CLOSE = 1900
+    OPEN = 2400
+    PWM_PIN = 18
 
     def __init__(self):
         self.pub = rospy.Publisher(
@@ -22,15 +25,15 @@ class RobotGripper():
         )
 
         self.rpi = pigpio.pi()
-        self.rpi.set_mode(18, pigpio.OUTPUT)
+        self.rpi.set_mode(self.PWM_PIN, pigpio.OUTPUT)
 
     def callback(self, close: Bool):
         if close.data: 
-            self.rpi.set_servo_pulsewidth(18,1500)
+            self.rpi.set_servo_pulsewidth(self.PWM_PIN, self.CLOSE)
             print('should be closed')
         
         else:
-            self.rpi.set_servo_pulsewidth(18,2000)
+            self.rpi.set_servo_pulsewidth(self.PWM_PIN, self.OPEN)
             print('should be open')
 
         self.pub.publish(close)
