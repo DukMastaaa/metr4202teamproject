@@ -1,5 +1,7 @@
 #!/usr/bin/python3
+from tokenize import Int32
 import rospy
+import numpy as np
 import cv2
 from std_msgs.msg import Header, ColorRGBA
 from robot_msgs.msg import ColorWithID, ColorWithIDArray, LuggageColor, LuggageColorArray
@@ -8,23 +10,39 @@ from sensor_msgs.msg import Image
 
 from cv_bridge import CvBridge, CvBridgeError
 
+#Establish Red Blue Green 
+red = ColorRGBA()
+red.r = 255
+red.g = 0
+red.b = 0
+
+green = ColorRGBA()
+green.r = 0 
+green.g = 255
+green.b = 0
+
+blue = ColorRGBA()
+blue.r = 0
+blue.g = 0
+blue.b = 255
+
+yellow = ColorRGBA()
+yellow.r = 255
+yellow.g = 255
+yellow.b = 0
+
 class TagColour:
     SERIAL = 31700851
 
     def __init__(self):
-        self.vertices_sub = rospy.Subscriber(
-            "fid_vertices",
-            FiducialArray,
-            self.vertices_callback
-        )
         self.image_sub = rospy.Subscriber(
             f"/ximea_ros/ximea_{self.SERIAL}/image_raw",
             Image,
             self.image_callback
         )
         self.color_pub = rospy.Publisher(
-            "test_color",
-            ColorWithIDArray,
+            "luggage_colors",
+            LuggageColorArray,
             queue_size = 10
         )
 
@@ -32,49 +50,43 @@ class TagColour:
         self.image_locked = False
         self.image_bgr = None
     
-    def get_average_color(x0, y0, x1, y1, x2, y2, x3, y3) -> ColorRGBA:
-        vert_0 = [x0, y0]
-        vert_1 = [x1, y1]
-        vert_2 = [x2, y2]
-        vert_3 = [x3, y3]
+    def get_color(self, color) -> Int32:
+        # min_dis = 100
+        # for solid_color in [red,green,blue,yellow]:
+        #     euclidian_distance = np.sqrt(np.sqrt(color.r-solid_color.r)+np.sqrt(color.g-solid_color.g)+np.sqrt(color.b-solid_color.b))
+        #     if euclidian_distance < min_dis:
+        #         min_dis = euclidian_distance
+        #         return_color = solid_color
 
-        # stuff goes here, refer to self.image_bgr
+        if color.r > 200:
+            if color.g > 200:
+                return(3) # Yellow block detected
+            else:
+                return(0) # Red block detected
+        elif color.g > 200:
+            return(1) # Green block detected
+        elif color.b > 100:
+            return(2) # Blue block detected
+        else:
+            return(4) # Non-standard color detected
 
-        # for now
-        return ColorRGBA(r=255, g=0, b=0, a=255)
+    def image_callback(self,data):
+        global img
+        try:
+            img = self.bridge.imgmsg_to_cv2(data,"bgr8")
+        except CvBridgeError as e:
+            print(e)
+        #Get middle pixel
 
-    def image_callback(self, data):
-        # adapted from Miguel's example_camera.py code.
-        if not self.image_locked:
-            try:
-                self.image_bgr = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            except CvBridgeError as e:
-                print(e)
+        bgr = img[img.shape[0]//2,img.shape[1]//2,:]
+        color = ColorRGBA()
+        color.r = bgr[2]
+        color.g = bgr[1]
+        color.b = bgr[0]
+        detected_color = self.get_color(color)
+        self.color_pub.publish(detected_color)
 
-    def vertices_callback(self, fid_array: FiducialArray) -> None:
-        self.image_locked = True
-        colors = []
-        for fid in fid_array.fids:
-            average_color = self.get_average_color(
-                fid.x0, fid.y0, fid.x1, fid.y1, fid.x2, fid.y2, fid.x3, fid.y3
-            )
-            self.luggage_color_dict[fid.fiducial_id] = None
-            color_with_id = ColorWithID(id=fid.fiducial_id, color=average_color)
-            colors.append(color_with_id)
-        
-        header = Header()
-        header.stamp = rospy.time.now()
-        colors = list(self.luggage_color_dict.values())
-        msg = ColorWithIDArray(
-            header=header,
-            colors=colors
-        )
-        self.color_pub.publish(msg)
-        self.image_locked = False
-        
-if __name__ == "__main__":
+if _name_ == "_main_":
     rospy.init_node("luggage_colors", anonymous = True)
-
-    td = TagColour()
-
+    tc = TagColour()
     rospy.spin()
