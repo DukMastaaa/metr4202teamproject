@@ -3,7 +3,7 @@
 import rospy
 import modern_robotics as mr
 
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Bool
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose
 
@@ -14,6 +14,8 @@ from numpy import arctan2 as atan2
 import constants
 
 from typing import Tuple
+
+from robot_msgs.srv import DoInverseKinematics, DoInverseKinematicsResponse
 
 Slist = np.array([
     [0, 0, 1, 0, 0, 0],
@@ -35,9 +37,9 @@ class InverseKinematics:
             JointState,
             queue_size=10
         )
-        self.sub = rospy.Subscriber(
-            self.NODE_NAME_TO_SUBSCRIBE,
-            Pose,
+        self.srv = rospy.Service(
+            'do_inverse_kinematics',
+            DoInverseKinematics,
             self.callback
         )
         
@@ -133,28 +135,29 @@ class InverseKinematics:
         angle_4 = theta_3
         return angle_1, angle_2, angle_3, angle_4
 
-    def callback(self, pose: Pose) -> None:
+    def callback(self, req) -> None:
         """
-        Callback for the subscriber, which calculates the desired joint angles,
+        Callback for the service, which calculates the desired joint angles,
         compensates for inconsistencies in motor assembly, and publishes
         to the next stage.
+        Returns whether IK succeded as the response.
         """
-        if self.USE_NUMERICAL:
-            theta_1, theta_2, theta_3, theta_4 = self.numerical(
-                pose.position.x, pose.position.y, pose.position.z
-            )
-        else:
-            if pose.position.x < 0.2 and pose.position.z < 0.10:
-                theta_e = np.deg2rad(60)
-            elif pose.position.z > 0.13:
-                theta_e = np.deg2rad(-45)
+        pose = req.pose
+        theta_e = req.theta_e
+        
+        try:
+            if self.USE_NUMERICAL:
+                theta_1, theta_2, theta_3, theta_4 = self.numerical(
+                    pose.position.x, pose.position.y, pose.position.z
+                )
             else:
-                theta_e = np.deg2rad(30)
-            
-            theta_1, theta_2, theta_3, theta_4 = self.solution_4r(
-                constants.L1, constants.L2, constants.L3, constants.L4, theta_e,
-                pose.position.x, pose.position.y, pose.position.z
-            )
+                theta_1, theta_2, theta_3, theta_4 = self.solution_4r(
+                    constants.L1, constants.L2, constants.L3, constants.L4, theta_e,
+                    pose.position.x, pose.position.y, pose.position.z
+                )
+        except AssertionError:
+            # IK failed
+            return DoInverseKinematicsResponse(Bool(data=False))
         
         angle_1, angle_2, angle_3, angle_4 = self.compensated_angles(
             theta_1, theta_2, theta_3, theta_4
@@ -172,6 +175,8 @@ class InverseKinematics:
         )
         
         self.pub.publish(msg)
+        
+        return DoInverseKinematicsResponse(Bool(data=True))
 
 def main():
     # Initialise node with any node name

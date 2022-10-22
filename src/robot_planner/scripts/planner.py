@@ -13,6 +13,7 @@ from typing import Optional
 from collections import defaultdict
 from tf_conversions import transformations
 
+from robot_msgs.srv import DoInverseKinematics, DoInverseKinematicsResponse
 
 L1 = 0.053
 L2 = 0.117
@@ -166,12 +167,6 @@ class Planner:
             self.color_callback
         )
 
-        self.pose_pub = rospy.Publisher(
-            "desired_pose",
-            Pose,
-            queue_size = 10
-        )
-
         self.joint_pub = rospy.Publisher(
             "desired_joint_states",
             JointState,
@@ -225,6 +220,29 @@ class Planner:
         # release locks
         self.is_busy = False
         self.backup_is_busy = False
+        
+    def desired_theta_e(self, pose: Pose) -> float:
+        """Calculates the desired theta_e given a pose."""
+        if pose.position.x < 0.2 and pose.position.z < 0.10:
+            return np.deg2rad(60)
+        elif pose.position.z > 0.13:
+            return np.deg2rad(-45)
+        else:
+            return np.deg2rad(30)
+    
+    def send_ik(self, pose: Pose, theta_e: float) -> bool:
+        """
+        Helper function to send the given data to the DoInverseKinematics
+        service. Returns whether the IK succeded.
+        """
+        rospy.wait_for_service("do_inverse_kinematics")
+        try:
+            do_inverse_kinematics = rospy.ServiceProxy('do_inverse_kinematics', DoInverseKinematics)
+            resp = do_inverse_kinematics(pose, theta_e)
+            return resp.success.data
+        except rospy.ServiceException as e:
+            print(f"Service call failed: {e}")
+            return False
 
     def state_1(self):
         rospy.loginfo("Moving to intial configuration:")
@@ -319,13 +337,24 @@ class Planner:
 
         above_pose = copy.deepcopy(min_pose)
         above_pose.position.z += 0.03
-        self.pose_pub.publish(above_pose)
+        theta_e = self.desired_theta_e(above_pose)
+        success = self.send_ik(above_pose, theta_e)
+        
+        if not success:
+            self.state_num = 2
+            rospy.sleep(1)
+            return
 
         rospy.loginfo("Waiting for joints to reach position...")
         rospy.sleep(3)
         
         rospy.loginfo("Moving down to luggage...")
-        self.pose_pub.publish(min_pose)
+        theta_e = self.desired_theta_e(min_pose)
+        success = self.send_ik(min_pose, theta_e)
+        if not success:
+            self.state_num = 2
+            rospy.sleep(1)
+            return
 
         rospy.loginfo("Waiting for joints to reach position...")
         rospy.sleep(2)
