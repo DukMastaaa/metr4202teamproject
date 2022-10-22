@@ -17,8 +17,8 @@ T_bc = np.array([
     [0,0,0,1]]
 )
 
-# TAG_LENGTH = 2.9/100
-TAG_LENGTH = 0
+TAG_LENGTH = 2.8/100
+# TAG_LENGTH = 0
 
 def transform_to_SE3(transform: Transform) -> np.array:
     # from week 5 prac
