@@ -22,14 +22,24 @@ L4 = 0.113
 HOME_POSE = mr.RpToTrans(np.eye(3),[0,0,L1+L2+L3+L4-.05])
 
 SHOW_TO_CAMERA_SE3 = mr.RpToTrans(
-    np.eye(3), [20/100, 0, 30/100]
+    np.eye(3), [15/100, 0, 35/100]
 )
 
+# Red zone
 DROPOFF_1 = mr.RpToTrans(
-    np.eye(3), [-0.05, -0.18, 0.08]
+    np.eye(3), [-0.05, -0.18, 0.08] # Clockwise turn
 )
+# Green zone
 DROPOFF_2 = mr.RpToTrans(
-    np.eye(3),[-0.05,0.18,0.08]
+    np.eye(3),[-0.05,0.18,0.08] # Anti-clockwise turn
+)
+# Blue zone
+DROPOFF_3 = mr.RpToTrans(
+    np.eye(3), [-0.15, -0.18, 0.08] # Clockwise turn, increased x
+)
+# Yellow zone
+DROPOFF_4 = mr.RpToTrans(
+    np.eye(3),[-0.15,0.18,0.08] # Anti-clockwise turn, increased x
 )
 
 def vector_to_point(v: Vector3) -> Point:
@@ -378,7 +388,28 @@ class Planner:
         rospy.loginfo("Moving to above drop-off zone...")
         # the proper code should involve self.current_color
         # to decide what dropoff zone to use
-        dropoff_pose = transform_to_pose(SE3_to_transform(DROPOFF_1))
+        
+        dropoff_zone = None
+        if self.current_color == 0:
+            dropoff_zone = DROPOFF_1
+            print("Red detected!")
+        elif self.current_color == 1:
+            dropoff_zone = DROPOFF_2
+            print("Green detected!")
+        elif self.current_color == 2:
+            dropoff_zone = DROPOFF_3
+            print("Blue detected!")
+        elif self.current_color == 3:
+            dropoff_zone = DROPOFF_4
+            print("Yellow detected!")
+        elif self.current_color == None:
+            dropoff_zone = DROPOFF_1
+            print("No update to color!") # Callback is not updating self.current_color
+        else:
+            dropoff_zone = DROPOFF_1
+            print("No block detected!") # Pixel color is not any of the main block colors
+            
+        dropoff_pose = transform_to_pose(SE3_to_transform(dropoff_zone))
         above_dropoff_pose = copy.deepcopy(dropoff_pose)
         above_dropoff_pose.position.z += 0.1
 
