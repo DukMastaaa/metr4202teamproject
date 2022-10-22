@@ -1,0 +1,13 @@
+<launch>
+    <include file="$(find dynamixel_interface)/launch/dynamixel_interface_controller.launch"/>
+    <include file="$(find ximea_ros)/launch/ximea_aruco.launch">
+        <arg name="serial" value="31700851"/>
+    </include>
+    <node pkg="control" name="inverse_kinematics" type="inverse_kinematics.py" output="screen"/>
+    <node pkg="ximea_ros" name="ximea_camera" type="ximea_demo" output="screen"/>
+    <node pkg="robot_planner" name="robot_planner" type="planner.py" output="screen"/>
+    <node pkg="robot_vision" name="luggage_transforms" type="luggage_transforms.py" output ="screen"/>
+    <node pkg="robot_gripper" name="robot_gripper" type="gripper.py" output="screen"/>
+    <node pkg="ximea_color" name="color_detect" type="ximea_color_detect" output="screen"/>
+    <node pkg="robot_vision" name="luggage_colors" type="luggage_colors.py" output="screen"/>
+</launch>

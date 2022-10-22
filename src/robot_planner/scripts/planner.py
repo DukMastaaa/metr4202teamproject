@@ -21,11 +21,14 @@ L4 = 0.113
 HOME_POSE = mr.RpToTrans(np.eye(3),[0,0,L1+L2+L3+L4-.05])
 
 SHOW_TO_CAMERA_SE3 = mr.RpToTrans(
-    np.eye(3), [15/100, 0, 22/100]
+    np.eye(3), [20/100, 0, 30/100]
 )
 
 DROPOFF_1 = mr.RpToTrans(
-    np.eye(3), [-0.05, -0.15, 0.03]
+    np.eye(3), [-0.05, -0.18, 0.08]
+)
+DROPOFF_2 = mr.RpToTrans(
+    np.eye(3),[-0.05,0.18,0.08]
 )
 
 def vector_to_point(v: Vector3) -> Point:
@@ -315,7 +318,7 @@ class Planner:
         del self.luggage_dict[min_id]
 
         above_pose = copy.deepcopy(min_pose)
-        above_pose.position.z += 0.05
+        above_pose.position.z += 0.03
         self.pose_pub.publish(above_pose)
 
         rospy.loginfo("Waiting for joints to reach position...")
@@ -325,7 +328,7 @@ class Planner:
         self.pose_pub.publish(min_pose)
 
         rospy.loginfo("Waiting for joints to reach position...")
-        rospy.sleep(3)
+        rospy.sleep(2)
 
         rospy.loginfo("Closing gripper...")
         self.gripper_pub.publish(True)
@@ -363,7 +366,7 @@ class Planner:
 
         rospy.loginfo("Opening gripper...")
         self.gripper_pub.publish(False)
-        
+        rospy.sleep(0.5)
         self.id_blacklist.remove(self.current_id)
        
         self.state_num = 2

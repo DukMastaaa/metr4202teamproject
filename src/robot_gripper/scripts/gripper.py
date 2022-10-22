@@ -8,7 +8,7 @@ class RobotGripper():
     NODE_NAME_TO_SUBSCRIBE = "desired_gripper_pos"
     NODE_NAME_TO_PUBLISH = "gripper_pos"
     
-    CLOSE = 1900
+    CLOSE = 1800
     OPEN = 2400
     PWM_PIN = 18
 

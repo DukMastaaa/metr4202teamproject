@@ -144,7 +144,12 @@ class InverseKinematics:
                 pose.position.x, pose.position.y, pose.position.z
             )
         else:
-            theta_e = np.deg2rad(45)
+            if pose.position.x < 0.2 and pose.position.z < 0.10:
+                theta_e = np.deg2rad(60)
+            elif pose.position.z > 0.13:
+                theta_e = np.deg2rad(-45)
+            else:
+                theta_e = np.deg2rad(30)
             
             theta_1, theta_2, theta_3, theta_4 = self.solution_4r(
                 constants.L1, constants.L2, constants.L3, constants.L4, theta_e,
