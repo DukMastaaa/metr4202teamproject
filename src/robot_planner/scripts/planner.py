@@ -2,7 +2,7 @@
 import copy
 import rospy
 from geometry_msgs.msg import Pose, Transform, Point, Vector3, Quaternion
-from std_msgs.msg import Bool,Header
+from std_msgs.msg import Bool,Header, Int32
 from robot_msgs.msg import LuggageTransformArray, LuggageTransform, LuggageColorArray, LuggageColor
 from sensor_msgs.msg import JointState
 
@@ -173,7 +173,7 @@ class Planner:
         )
         self.color_sub = rospy.Subscriber(
             "luggage_colors",
-            LuggageColorArray,
+            Int32,
             self.color_callback
         )
 

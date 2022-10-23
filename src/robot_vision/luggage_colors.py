@@ -1,9 +1,8 @@
 #!/usr/bin/python3
-from tokenize import Int32
 import rospy
 import numpy as np
 import cv2
-from std_msgs.msg import Header, ColorRGBA
+from std_msgs.msg import Header, ColorRGBA, Int32
 from robot_msgs.msg import ColorWithID, ColorWithIDArray, LuggageColor, LuggageColorArray
 from fiducial_msgs.msg import FiducialArray
 from sensor_msgs.msg import Image
@@ -43,7 +42,7 @@ class TagColour:
         )
         self.color_pub = rospy.Publisher(
             "luggage_colors",
-            LuggageColorArray,
+            Int32,
             queue_size = 10
         )
 
@@ -85,7 +84,8 @@ class TagColour:
         color.g = bgr[1]
         color.b = bgr[0]
         detected_color = self.get_color(color)
-        self.color_pub.publish(detected_color)
+        msg = Int32(data=detected_color)
+        self.color_pub.publish(msg)
 
 if _name_ == "_main_":
     rospy.init_node("luggage_colors", anonymous = True)
