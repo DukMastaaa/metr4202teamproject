@@ -1,0 +1,4 @@
+geometry_msgs/Pose pose
+float64 theta_e
+---
+std_msgs/Bool success
