@@ -6,7 +6,7 @@ from std_msgs.msg import Header, ColorRGBA, Int32
 from robot_msgs.msg import ColorWithID, ColorWithIDArray, LuggageColor, LuggageColorArray
 from fiducial_msgs.msg import FiducialArray
 from sensor_msgs.msg import Image
-
+from robot_msgs.srv import DoColor, DoColorResponse
 from cv_bridge import CvBridge, CvBridgeError
 
 # sdflksjdflkjs
@@ -35,15 +35,15 @@ class TagColour:
     SERIAL = 31700851
 
     def __init__(self):
-        self.image_sub = rospy.Subscriber(
-            f"/ximea_ros/ximea_{self.SERIAL}/image_raw",
-            Image,
+        # self.image_sub = rospy.Subscriber(
+        #     f"/ximea_ros/ximea_{self.SERIAL}/image_raw",
+        #     Image,
+        #     self.image_callback
+        # )
+        self.srv = rospy.Service(
+            "do_color_detect",
+            DoColor,
             self.image_callback
-        )
-        self.color_pub = rospy.Publisher(
-            "luggage_colors",
-            Int32,
-            queue_size = 10
         )
 
         self.bridge = CvBridge()
@@ -70,24 +70,28 @@ class TagColour:
         else:
             return(4) # Non-standard color detected
 
-    def image_callback(self,data):
-        global img
-        try:
-            img = self.bridge.imgmsg_to_cv2(data,"bgr8")
-        except CvBridgeError as e:
-            print(e)
-        #Get middle pixel
+    def image_callback(self,req):
+        if req:
+            data = rospy.wait_for_message(f"/ximea_ros/ximea_{self.SERIAL}/image_raw",Image)
+            global img
+            try:
+                img = self.bridge.imgmsg_to_cv2(data,"bgr8")
+            except CvBridgeError as e:
+                print(e)
+            #Get middle pixel
 
-        bgr = img[img.shape[0]//2,img.shape[1]//2,:]
-        color = ColorRGBA()
-        color.r = bgr[2]
-        color.g = bgr[1]
-        color.b = bgr[0]
-        detected_color = self.get_color(color)
-        msg = Int32(data=detected_color)
-        self.color_pub.publish(msg)
+            bgr = img[img.shape[0]//2,img.shape[1]//2,:]
+            color = ColorRGBA()
+            color.r = bgr[2]
+            color.g = bgr[1]
+            color.b = bgr[0]
+            detected_color = self.get_color(color)
+            print(detected_color)
+            msg = Int32(data=detected_color)
+        
+            return DoColorResponse(msg)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     rospy.init_node("luggage_colors", anonymous = True)
     tc = TagColour()
     rospy.spin()

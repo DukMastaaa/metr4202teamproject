@@ -38,8 +38,8 @@ class InverseKinematics:
             queue_size=10
         )
         self.srv = rospy.Service(
-            'do_inverse_kinematics',
-            DoInverseKinematics,
+            'do_inverse_kinematics',  # service name, MUST be consistent with planner
+            DoInverseKinematics,  # class
             self.callback
         )
         
@@ -142,6 +142,7 @@ class InverseKinematics:
         to the next stage.
         Returns whether IK succeded as the response.
         """
+        # split up request
         pose = req.pose
         theta_e = req.theta_e
         
@@ -155,7 +156,7 @@ class InverseKinematics:
                     constants.L1, constants.L2, constants.L3, constants.L4, theta_e,
                     pose.position.x, pose.position.y, pose.position.z
                 )
-        except AssertionError:
+        except (AssertionError, ValueError):
             # IK failed
             return DoInverseKinematicsResponse(Bool(data=False))
         
