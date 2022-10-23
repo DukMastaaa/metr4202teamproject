@@ -10,6 +10,7 @@ from sensor_msgs.msg import JointState
 
 import modern_robotics as mr
 import numpy as np
+from numpy import arctan2 as atan2
 
 from typing import Optional
 from collections import defaultdict
@@ -251,6 +252,38 @@ class Planner:
             print(f"Service call failed: {e}")
             return False
 
+    def fetch_theoretical_IK(self, pose: Pose, theta_e: float, direction: float):
+        px = pose.position.x
+        py = pose.position.y
+        pz = pose.position.z
+        theta_e = np.deg2rad(theta_e)
+
+        br = np.sqrt(px**2.0 + py**2.0) - L4 * np.cos(theta_e)
+        phi = atan2(py, px)
+        bz = pz + L4 * np.sin(theta_e) - L1
+
+        c2 = (br**2.0 + bz**2.0 - L2**2.0 - L3**2.0) / (2.0 * L2 * L3)
+        theta_b = atan2(-np.sqrt(1 - c2**2.0), c2)
+        theta_a = atan2(br, bz) - atan2(L3 * np.sin(theta_b), L2 + L3 * np.cos(theta_b))
+
+        theta_1 = phi
+        theta_2 = np.deg2rad(90) - theta_a
+        theta_3 = -theta_b
+        theta_4 = theta_e - theta_2 - theta_3 + np.deg2rad(90.0)
+
+        if direction == 1:
+            angle_1, angle_2, angle_3, angle_4 = theta_4, theta_1, theta_2, theta_3
+        else:
+            angle_1, angle_2, angle_3, angle_4 = -theta_4, -theta_1, -theta_2, -theta_3
+        
+        msg = JointState(
+            header=Header(stamp=rospy.Time.now()),
+            name=['joint_1', 'joint_2', 'joint_3', 'joint_4'],
+            position=[angle_1, angle_2, angle_3, angle_4]
+        )
+        
+        return msg
+
 
     def state_1(self):
         rospy.loginfo("Moving to intial configuration:")
@@ -289,14 +322,20 @@ class Planner:
             position=[0, 0, 0, 0]
         )
         self.joint_pub.publish(msg)
-        rospy.sleep(2)
+        rospy.sleep(1)
 
         rospy.loginfo("Waiting for conveyor to stop and for luggage to be present...")
 
-        VELOCITY_THRESHOLD = 0.0008
-
+        VELOCITY_THRESHOLD = 0.01
+        
         min = float('inf')
+        i = 0
         while True:
+            i += 1
+            if i > 500:
+                i = 0
+                rospy.sleep(0.5)
+                continue
             # acquire locks
             self.is_busy = True
             self.backup_is_busy = False
@@ -315,7 +354,7 @@ class Planner:
             # release locks
             self.reconcile()
             
-            # rospy.sleep(0.5)
+            rospy.sleep(0.5)
             
         rospy.loginfo("detected!")
         self.state_num = 3
@@ -363,7 +402,36 @@ class Planner:
         del self.luggage_dict[min_id]
 
         above_pose = copy.deepcopy(min_pose)
-        above_pose.position.z += 0.03
+        y_error = 1
+        if above_pose.position.y > 0:
+            print("LEFT!")
+            if above_pose.position.y < 0.04: # Directly in front of robot (left)
+                above_pose.position.z += 0.03
+                above_pose.position.x -= 0.065
+            elif above_pose.position.x > 0.225: # Further CCW quadrant
+                print("FRONT!")
+                above_pose.position.z += 0.01
+                above_pose.position.x -= 0.065
+            else: # Closer CCW quadrant
+                above_pose.position.z += 0.02
+                above_pose.position.x -= 0.065
+                above_pose.position.y -= 0.01 * y_error
+        else:
+            if above_pose.position.y > -0.04: # Directly in front of robot (right)
+                above_pose.position.z += 0.03
+                above_pose.position.x -= 0.05
+                above_pose.position.y -= 0.025 * y_error
+            elif above_pose.position.x > 0.2: # Further CW quadrant
+                above_pose.position.z += 0.01
+                above_pose.position.x -= 0.065
+                above_pose.position.y -= 0.035 * y_error
+            else: # Closer CW quadrant
+                above_pose.position.z += 0.02
+                above_pose.position.x -= 0.065
+                above_pose.position.y -= 0.045 * y_error
+            
+
+
         theta_e = self.desired_theta_e(above_pose)
         success = self.send_ik(above_pose, theta_e)
         
@@ -374,11 +442,12 @@ class Planner:
             return
 
         rospy.loginfo("Waiting for joints to reach position...")
-        rospy.sleep(2)
+        rospy.sleep(1.5)
         
         rospy.loginfo("Moving down to luggage...")
         theta_e = self.desired_theta_e(min_pose)
         success = self.send_ik(min_pose, theta_e)
+
         if not success:
             self.id_blacklist.clear()
             self.state_num = 2
@@ -386,7 +455,7 @@ class Planner:
             return
 
         rospy.loginfo("Waiting for joints to reach position...")
-        rospy.sleep(1.5)
+        rospy.sleep(1)
 
         rospy.loginfo("Closing gripper...")
         self.gripper_pub.publish(True)
@@ -412,67 +481,45 @@ class Planner:
         rospy.loginfo('Detecting Color')
         
         DROPOFF_1 = mr.RpToTrans(
-            np.eye(3),[-0.05,-0.18,0.1] # Anti-clockwise turn
+            np.eye(3),[-0.05,0.18,0.15] # Clockwise turn
         )
 
-        # DROPOFF_1 = JointState(
-        #     header=Header(stamp=rospy.Time.now()),
-        #     name=['joint_1', 'joint_2', 'joint_3', 'joint_4'],
-        #     position=[-1.77, -0.921, -1.853, 0]
-        # )
-        # Green zone
+        
         DROPOFF_2 = mr.RpToTrans(
-            np.eye(3),[-0.05,0.18,0.1] # Anti-clockwise turn
+            np.eye(3),[-0.05,-0.18,0.15] # Anti-clockwise turn
         )
-        # DROPOFF_2 = JointState(
-        #             header=Header(stamp=rospy.Time.now()),
-        #             name=['joint_1', 'joint_2', 'joint_3', 'joint_4'],
-        #             # position=[-1.622, -1.003, 1.837, 0.230]
-                # )
+        
         # Blue zone
-        # DROPOFF_3 = mr.RpToTrans(
-        #     np.eye(3), [-0.13, -0.05, 0.1] # Clockwise turn, increased x
-        # )
-        # DROPOFF_3 = JointState(
-        #             header=Header(stamp=rospy.Time.now()),
-        #             name=['joint_1', 'joint_2', 'joint_3', 'joint_4'],
-        #             position=[1.65, 0.74, 0.281, -0.522]
-        #         )
-
-
-        # Yellow zone
-        # DROPOFF_4 = mr.RpToTrans(
-        #     np.eye(3),[-0.13,0.05,0.1] # Anti-clockwise turn, increased x
-        # )
-        # DROPOFF_4 = JointState(
-        #             header=Header(stamp=rospy.Time.now()),
-        #             name=['joint_1', 'joint_2', 'joint_3', 'joint_4'],
-        #             position=[1.55, 0.813, -0.322, -0.737]
-        #         )
-        # the proper code should involve self.current_color
-        # to decide what dropoff zone to use
+        DROPOFF_3 = mr.RpToTrans(
+            np.eye(3),[0.02,0.01,0.4]  # Clockwise turn, increased x (y-axis swapped)
+        )
+        
+        #Yellow zone
+        DROPOFF_4 = mr.RpToTrans(
+            np.eye(3),[0.02,-0.01,0.4] # Anti-clockwise turn, increased x (y-axis swapped)
+        )
+        
+        dir = 1
         current_color = self.send_colour_request(Bool(data=True))
-
         dropoff_zone = None
         if current_color == 0:
-            dropoff_zone = DROPOFF_1
+            dropoff_zone, dir = DROPOFF_1, 1
             print("Red detected!")
         elif current_color == 1:
-            dropoff_zone = DROPOFF_2
+            dropoff_zone, dir = DROPOFF_2, 1
             print("Green detected!")
         elif current_color == 2:
-            dropoff_zone = DROPOFF_1
+            dropoff_zone, dir = DROPOFF_3, 1
             print("Blue detected!")
         elif current_color == 3:
-            dropoff_zone = DROPOFF_2
+            dropoff_zone, dir = DROPOFF_4, 1
             print("Yellow detected!")
         elif current_color == None:
-            dropoff_zone = DROPOFF_1
+            dropoff_zone, dir = DROPOFF_1, 1
             print("No update to color!") # Callback is not updating self.current_color
         else:
-            dropoff_zone = DROPOFF_1
+            dropoff_zone, dir = DROPOFF_1, 1
             print("No block detected!") # Pixel color is not any of the main block colors
-
 
         rospy.loginfo("Moving to home configuration...")
         
@@ -482,7 +529,7 @@ class Planner:
             position=[0, 0, 0, 0]
         )
         self.joint_pub.publish(msg)
-        rospy.sleep(2)
+        rospy.sleep(1.5)
             
         if dropoff_zone is None:
             # open the hand
@@ -494,36 +541,24 @@ class Planner:
         
         dropoff_pose = transform_to_pose(SE3_to_transform(dropoff_zone))
         above_dropoff_pose = copy.deepcopy(dropoff_pose)
-        above_dropoff_pose.position.z += 0.1
+        above_dropoff_pose.position.z += 0.2
 
         rospy.loginfo("Moving to above drop off zone")
         theta_e = np.deg2rad(70)
-        success = self.send_ik(above_dropoff_pose, theta_e)
-        
-        if not success:
-            rospy.loginfo("IK Failed")
-            self.id_blacklist.clear()
-            self.state_num = 2
-            rospy.sleep(1)
-            return
+        msg = self.fetch_theoretical_IK(above_dropoff_pose, theta_e, dir)
+        self.joint_pub.publish(msg)
 
         rospy.loginfo("Waiting for joints to reach position...")
         rospy.sleep(3)
 
-
         rospy.loginfo("Moving to drop-off zone...")
         theta_e = np.deg2rad(70)
-        success = self.send_ik(dropoff_pose, theta_e)
-        
-        if not success:
-            rospy.loginfo("IK Failed")
-            self.id_blacklist.clear()
-            self.state_num = 2
-            rospy.sleep(1)
-            return
+
+        msg = self.fetch_theoretical_IK(above_dropoff_pose, theta_e, dir)
+        self.joint_pub.publish(msg)
 
         rospy.loginfo("Waiting for joints to reach position...")
-        rospy.sleep(2)
+        rospy.sleep(1.5)
 
         rospy.loginfo("Opening gripper...")
         self.gripper_pub.publish(False)
@@ -531,31 +566,116 @@ class Planner:
 
         rospy.loginfo("Moving to above drop off zone")
         theta_e = np.deg2rad(70)
-        success = self.send_ik(above_dropoff_pose, theta_e)
+        msg = self.fetch_theoretical_IK(above_dropoff_pose, theta_e, dir)
+        self.joint_pub.publish(msg)
 
-        if not success:
-            rospy.loginfo("IK Failed")
+        rospy.loginfo("Waiting for joints to reach position...")
+        rospy.sleep(1.5)
+
+        self.id_blacklist.remove(self.current_id)
+        self.state_num = 1
+
+    def state_fun(self):
+        rospy.loginfo('Detecting Color')
+        
+        DROPOFF_1 = mr.RpToTrans(
+            np.eye(3),[-0.05,0.18,0.15] # Clockwise turn
+        )
+
+        
+        DROPOFF_2 = mr.RpToTrans(
+            np.eye(3),[-0.05,-0.18,0.15] # Anti-clockwise turn
+        )
+        
+        # Blue zone
+        DROPOFF_3 = mr.RpToTrans(
+            np.eye(3),[0.02,0.01,0.4]  # Clockwise turn, increased x (y-axis swapped)
+        )
+        
+        #Yellow zone
+        DROPOFF_4 = mr.RpToTrans(
+            np.eye(3),[0.02,-0.01,0.4] # Anti-clockwise turn, increased x (y-axis swapped)
+        )
+        
+        dir = 1
+        current_color = self.send_colour_request(Bool(data=True))
+        dropoff_zone = None
+        if current_color == 0:
+            dropoff_zone, dir = DROPOFF_1, 1
+            print("Red detected!")
+        elif current_color == 1:
+            dropoff_zone, dir = DROPOFF_2, 1
+            print("Green detected!")
+        elif current_color == 2:
+            dropoff_zone, dir = DROPOFF_3, 1
+            print("Blue detected!")
+        elif current_color == 3:
+            dropoff_zone, dir = DROPOFF_4, 1
+            print("Yellow detected!")
+        elif current_color == None:
+            dropoff_zone, dir = DROPOFF_1, 1
+            print("No update to color!") # Callback is not updating self.current_color
+        else:
+            dropoff_zone, dir = DROPOFF_1, 1
+            print("No block detected!") # Pixel color is not any of the main block colors
+
+        rospy.loginfo("Moving to pre-throw configuration...")
+        
+        msg = JointState(
+            header=Header(stamp=rospy.Time.now()),
+            name=['joint_1', 'joint_2', 'joint_3', 'joint_4'],
+            position=[0, 0, 30, 30]
+        )
+        self.joint_pub.publish(msg)
+        rospy.sleep(1)
+            
+        if dropoff_zone is None:
+            # open the hand
+            self.gripper_pub.publish(False)
             self.id_blacklist.clear()
             self.state_num = 2
             rospy.sleep(1)
             return
+        
+        dropoff_pose = transform_to_pose(SE3_to_transform(dropoff_zone))
+        above_dropoff_pose = copy.deepcopy(dropoff_pose)
+        above_dropoff_pose.position.z += 0.2
+
+        rospy.loginfo("Moving to above drop off zone")
+        theta_e = np.deg2rad(70)
+        msg = self.fetch_theoretical_IK(above_dropoff_pose, theta_e, dir)
+        self.joint_pub.publish(msg)
 
         rospy.loginfo("Waiting for joints to reach position...")
-        rospy.sleep(2)
+        rospy.sleep(0.4)
+
+        rospy.loginfo("Opening gripper...")
+        self.gripper_pub.publish(False)
 
         self.id_blacklist.remove(self.current_id)
-       
-        self.state_num = 2
+        self.state_num = 1
 
     def main_loop(self):
         self.state_num = 2
-        state_num_to_function = {
+        fun_toggle = input("Fun task? (y/n) \n\n")
+        if fun_toggle == 'y':
+            state_num_to_function = {
+            1: self.state_1,
+            2: self.state_2,
+            3: self.state_3,
+            4: self.state_4,
+            5: self.state_fun,
+        }
+        else:
+            state_num_to_function = {
             1: self.state_1,
             2: self.state_2,
             3: self.state_3,
             4: self.state_4,
             5: self.state_5,
         }
+
+        
 
         while not rospy.is_shutdown():
             exec_state = state_num_to_function.get(self.state_num, None)
