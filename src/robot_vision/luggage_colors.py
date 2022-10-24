@@ -1,4 +1,8 @@
 #!/usr/bin/python3
+
+# 0 Imports and global variables
+
+# 0.1 Importing packages, classes and methods
 import rospy
 import numpy as np
 import cv2
@@ -9,8 +13,7 @@ from sensor_msgs.msg import Image
 from robot_msgs.srv import DoColor, DoColorResponse
 from cv_bridge import CvBridge, CvBridgeError
 
-# sdflksjdflkjs
-#Establish Red Blue Green 
+# 0.2 Establishing the RGB of the luggage colours.
 red = ColorRGBA()
 red.r = 255
 red.g = 0
@@ -31,15 +34,12 @@ yellow.r = 255
 yellow.g = 255
 yellow.b = 0
 
+# 1 Luggage colour
 class TagColour:
     SERIAL = 31700851
 
     def __init__(self):
-        # self.image_sub = rospy.Subscriber(
-        #     f"/ximea_ros/ximea_{self.SERIAL}/image_raw",
-        #     Image,
-        #     self.image_callback
-        # )
+        # Service for colour detection
         self.srv = rospy.Service(
             "do_color_detect",
             DoColor,
@@ -51,13 +51,9 @@ class TagColour:
         self.image_bgr = None
     
     def get_color(self, color) -> Int32:
-        # min_dis = 100
-        # for solid_color in [red,green,blue,yellow]:
-        #     euclidian_distance = np.sqrt(np.sqrt(color.r-solid_color.r)+np.sqrt(color.g-solid_color.g)+np.sqrt(color.b-solid_color.b))
-        #     if euclidian_distance < min_dis:
-        #         min_dis = euclidian_distance
-        #         return_color = solid_color
-
+        """
+        Chooses the closest luggage colour of the inputted pixel RGB based on thresholds.
+        """
         if color.r > 200:
             if color.g > 200:
                 return(3) # Yellow block detected
@@ -71,6 +67,10 @@ class TagColour:
             return(4) # Non-standard color detected
 
     def image_callback(self,req):
+        """
+        Finds the middle pixel colour and delivers the result.
+        """
+        
         if req:
             data = rospy.wait_for_message(f"/ximea_ros/ximea_{self.SERIAL}/image_raw",Image)
             global img
