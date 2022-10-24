@@ -5,16 +5,12 @@ Team 13 for METR4202, S2 2022
 After cloning the repository, execute the following commands to build and run the project.
 ```bash
 noetic  # source /opt/ros/noetic/setup.bash
-# cd to the root directory of this repository
+# cd to the root directory of this repository (metr4202teamproject)
 catkin build
 source devel/setup.bash
 ```
-
-At the moment, we run the project using
-```bash
-roslaunch project example.launch
-```
-but this will change as we progress into the project.
+The launcher is accessed through "robot_launch full.launch". The camera and servo motor must be set-up through shell commands.
+There is a prompt in robot_planner that will ask to run the fun task - enter y to run this or n otherwise.
 
 ## Cloning
 This project uses git submodules for dependency management.
